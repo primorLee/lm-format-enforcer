@@ -81,6 +81,7 @@ class StringParser(CharacterLevelParser):
     """RegexParser is an example CharacterLevelParser that only allows an exact string. It is a debugging / learning tool
     to show how CharacterLevelParser works together with TokenizerPrefixTree to filter the allowed tokens (some of whom may contain multiple characters)"""
     def __init__(self, string: str):
+        super().__init__()
         self.target_str = string
 
     def add_character(self, new_character: str) -> CharacterLevelParser:
@@ -100,6 +101,7 @@ class ForceStopParser(CharacterLevelParser):
     """A simple parser that forbids any characters except the stop token. Used to force stop LM operation"""
     def __init__(self, allow_whitespace: bool = False):
         self.allow_whitespace = allow_whitespace
+        super().__init__()
     def add_character(self, new_character: str) -> CharacterLevelParser:
         return self
     def get_allowed_characters(self) -> str:
@@ -111,6 +113,7 @@ class ForceStopParser(CharacterLevelParser):
 class UnionParser(CharacterLevelParser):
     """A parser that allows a string that would be allowed by any of several different parsers"""
     def __init__(self, parsers: List[CharacterLevelParser]):
+        super().__init__()
         self.parsers = parsers
 
     def add_character(self, new_character: str) -> CharacterLevelParser:
@@ -144,6 +147,7 @@ class UnionParser(CharacterLevelParser):
 class SequenceParser(CharacterLevelParser):
     """A parser that is a sequence of multiple parsers."""
     def __init__(self, parsers: List[CharacterLevelParser]):
+        super().__init__()
         self.parsers = parsers
 
     def add_character(self, new_character: str) -> CharacterLevelParser:
