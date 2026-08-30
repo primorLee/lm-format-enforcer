@@ -172,6 +172,22 @@ def _merge_object_schemas(base_schema: JsonSchemaObject, option_schema: JsonSche
     return option_schema
 
 
+def _resolve_ref(
+    parsing_state: JsonSchemaParser, value_schema: JsonSchemaObject
+) -> JsonSchemaObject:
+    assert value_schema.ref is not None
+    value_class_name = value_schema.ref.split('/')[-1]
+    extras = parsing_state.context.model_class.extras
+    # Pydantic V1 and V2 have different names for the definitions field
+    if 'definitions' in extras:
+        definitions = extras['definitions']
+    elif '$defs' in extras:
+        definitions = extras['$defs']
+    else:
+        raise ValueError("No definitions found in schema")
+    return JsonSchemaObject(**definitions[value_class_name])
+
+
 def get_parser(
     parsing_state: JsonSchemaParser,
     value_schema: JsonSchemaObject
@@ -203,26 +219,20 @@ def get_parser(
             pattern=value_schema.pattern,
         )
     if value_schema.oneOf:
-        # We create a combined object schema for each option that includes the information from the parent
-        # And then create a UnionParser based on the combined options
-        merged_schemas = [_merge_object_schemas(value_schema, option_schema) for option_schema in value_schema.oneOf]
-        object_parsing_options = [ObjectParsingState(merged_schema, parsing_state) for merged_schema in merged_schemas]
-        return UnionParser(object_parsing_options)
+        parsers = []
+        for option_schema in value_schema.oneOf:
+            if option_schema.ref:
+                option_schema = _resolve_ref(parsing_state, option_schema)
+            if option_schema.type == "object" or option_schema.properties:
+                option_schema = _merge_object_schemas(value_schema, option_schema)
+                parsers.append(ObjectParsingState(option_schema, parsing_state))
+            else:
+                parsers.append(get_parser(parsing_state, option_schema))
+        return UnionParser(parsers)
     elif value_schema.type == "object":
         return ObjectParsingState(value_schema, parsing_state)
     elif value_schema.type == None and value_schema.ref:
-        value_class_name = value_schema.ref.split('/')[-1]
-        extras = parsing_state.context.model_class.extras
-        # Pydantic V1 and V2 have different names for the definitions field
-        if 'definitions' in extras:
-            definitions = extras['definitions']
-        elif '$defs' in extras:
-            definitions = extras['$defs']
-        else:
-            raise ValueError("No definitions found in schema")
-        class_dict = definitions[value_class_name]
-        value_schema = JsonSchemaObject(**class_dict)
-        return get_parser(parsing_state, value_schema)
+        return get_parser(parsing_state, _resolve_ref(parsing_state, value_schema))
     elif value_schema.enum:
         is_numeric = all(isinstance(i, (int, float)) for i in value_schema.enum)
         is_string = all(isinstance(i, (str)) for i in value_schema.enum)
