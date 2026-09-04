@@ -895,6 +895,25 @@ def test_oneof_with_ref_options(
 
 
 @pytest.mark.parametrize(
+    "ref_prefix, valid_input, invalid_input",
+    [
+        ("#/$defs", "5", '"value"'),
+        ("#/definitions", '"value"', "5"),
+    ],
+)
+def test_oneof_ref_uses_the_named_definitions_section(
+    ref_prefix, valid_input, invalid_input
+):
+    schema = {
+        "$defs": {"Value": {"type": "integer"}},
+        "definitions": {"Value": {"type": "string"}},
+        "oneOf": [{"$ref": f"{ref_prefix}/Value"}],
+    }
+    _test_json_schema_parsing_with_string(valid_input, schema, True)
+    _test_json_schema_parsing_with_string(invalid_input, schema, False)
+
+
+@pytest.mark.parametrize(
     "test_input, expected_success",
     [
         ('{"source": "registry", "value": 1}', True),

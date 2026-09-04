@@ -179,12 +179,21 @@ def _resolve_ref(
     value_class_name = value_schema.ref.split('/')[-1]
     extras = parsing_state.context.model_class.extras
     # Pydantic V1 and V2 have different names for the definitions field
-    if 'definitions' in extras:
-        definitions = extras['definitions']
+    if value_schema.ref.startswith('#/definitions/'):
+        definitions_key = 'definitions'
+    elif value_schema.ref.startswith('#/$defs/'):
+        definitions_key = '$defs'
+    elif 'definitions' in extras:
+        definitions_key = 'definitions'
     elif '$defs' in extras:
-        definitions = extras['$defs']
+        definitions_key = '$defs'
     else:
         raise ValueError("No definitions found in schema")
+    if definitions_key not in extras:
+        raise ValueError(
+            f"Reference {value_schema.ref!r} points to a missing {definitions_key!r} section"
+        )
+    definitions = extras[definitions_key]
     return JsonSchemaObject(**definitions[value_class_name])
 
 
